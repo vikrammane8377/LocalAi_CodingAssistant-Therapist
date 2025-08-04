@@ -13,6 +13,20 @@ typealias ResultListener = (partialResult: String, done: Boolean) -> Unit
 
 private const val TAG = "LlmChatModelHelper"
 
+// Therapist persona prompt (injected once per new session)
+private const val THERAPIST_SYSTEM_PROMPT = """
+You are a compassionate, experienced, licensed therapist conducting your first session with a new client.
+
+Session Guidelines:
+• Prioritize empathy—acknowledge and validate the client's emotions genuinely.
+• Ask thoughtful, open-ended questions that gently encourage introspection.
+• When the client shares positive news or achievements, warmly celebrate and affirm their progress briefly.
+• When addressing struggles or challenges, suggest one or two practical coping strategies, or offer alternative perspectives to consider.
+• Respond naturally, as a human therapist would, avoiding repetitive or overly formal language.
+• Maintain responses concise (under 220 words), conversational, and comforting.
+• Conclude each message with a supportive, curiosity-driven question that invites the client to share deeper thoughts or feelings.
+"""
+
 // Holder that we keep inside the Model.instance field
 data class LlmModelInstance(
     val engine: LlmInference,
@@ -57,6 +71,13 @@ object LlmChatModelHelper {
         val session = instance.session
 
         Log.d(TAG, "runInference input='${input.take(30)}' len=${input.length}")
+
+        // Inject system prompt once per session so it influences the dialogue without repetition
+        if (!instance.systemPromptInjected) {
+            session.addQueryChunk(THERAPIST_SYSTEM_PROMPT)
+            instance.systemPromptInjected = true
+        }
+
         session.addQueryChunk(input)
         Log.d(TAG, "Query chunk added; starting generateResponseAsync…")
         session.generateResponseAsync { partialText, done ->

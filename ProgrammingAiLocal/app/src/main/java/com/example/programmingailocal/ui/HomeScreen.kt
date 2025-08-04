@@ -69,7 +69,7 @@ class HomeViewModel(private val context: Context) : ViewModel() {
 }
 
 @Composable
-fun HomeScreen(navigateToChat: () -> Unit) {
+fun HomeScreen(navigateToChat: () -> Unit, navigateToProgramming: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val vm: HomeViewModel = viewModel(factory = HomeViewModel.factory(context))
     val state by vm.uiState.collectAsState()
@@ -77,7 +77,11 @@ fun HomeScreen(navigateToChat: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when (state) {
             is HomeUiState.Idle -> {
-                Button(onClick = { vm.prepareModel(navigateToChat) }) { Text("Start chat") }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Button(onClick = { vm.prepareModel(navigateToChat) }) { Text("Start chat") }
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = { vm.prepareModel(navigateToProgramming) }) { Text("Start programming") }
+                }
             }
             is HomeUiState.Downloading -> {
                 val p = (state as HomeUiState.Downloading).progress
