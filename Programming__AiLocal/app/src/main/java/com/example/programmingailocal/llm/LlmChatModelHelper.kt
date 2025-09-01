@@ -4,11 +4,6 @@ import android.content.Context
 import android.util.Log
 import com.example.programmingailocal.data.*
 import com.example.programmingailocal.util.cleanUpMediapipeTaskErrorMessage
-import com.example.programmingailocal.remote.RemoteLlmRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import com.google.mediapipe.tasks.genai.llminference.GraphOptions
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
@@ -17,10 +12,6 @@ import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 typealias ResultListener = (partialResult: String, done: Boolean) -> Unit
 
 private const val TAG = "LlmChatModelHelper"
-const val USE_REMOTE = true
-    fun isRemoteEnabled(): Boolean = USE_REMOTE
-private val chatHistory = mutableListOf<Pair<String, String>>()
-private const val REMOTE_TAG = "RemoteLLM"
 
 // Therapist persona prompt (injected once per new session)
 private const val THERAPIST_SYSTEM_PROMPT = """
@@ -46,11 +37,6 @@ data class LlmModelInstance(
 object LlmChatModelHelper {
 
     fun initialize(context: Context, model: Model, onDone: (String?) -> Unit) {
-        if (USE_REMOTE) {
-            // No initialization needed for remote.
-            onDone(null)
-            return
-        }
         Log.d(TAG, "initialize() for model ${model.name}  path=${model.getPath(context)}")
         try {
             val options = LlmInference.LlmInferenceOptions.builder()
@@ -81,24 +67,6 @@ object LlmChatModelHelper {
     }
 
     fun runInference(model: Model, input: String, resultListener: ResultListener) {
-        if (USE_REMOTE) {
-            Log.d(REMOTE_TAG, "Calling remote Space")
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val reply = RemoteLlmRepository.generate(input, chatHistory)
-                    chatHistory.add(input to reply)
-                    CoroutineScope(Dispatchers.Main).launch {
-                        resultListener(reply, true)
-                    }
-                } catch (e: Exception) {
-                    Log.e(REMOTE_TAG, "Remote call failed", e)
-                    CoroutineScope(Dispatchers.Main).launch {
-                        resultListener("[error: ${'$'}{e.message}]", true)
-                    }
-                }
-            }
-            return
-        }
         val instance = model.instance as? LlmModelInstance ?: return
         val session = instance.session
 
@@ -119,10 +87,6 @@ object LlmChatModelHelper {
     }
 
     fun resetSession(model: Model) {
-        if (USE_REMOTE) {
-            chatHistory.clear()
-            return
-        }
         val instance = model.instance as? LlmModelInstance ?: return
         var retries = 0
         while (retries < 5) {
@@ -148,7 +112,6 @@ object LlmChatModelHelper {
     }
 
     fun cleanUp(model: Model) {
-        if (USE_REMOTE) return
         val instance = model.instance as? LlmModelInstance ?: return
         try {
             instance.session.close()

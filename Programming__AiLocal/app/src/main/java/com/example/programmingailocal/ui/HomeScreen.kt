@@ -21,7 +21,6 @@ import com.example.programmingailocal.model.QWEN_MODEL
 import com.example.programmingailocal.util.downloadModelFile
 import kotlinx.coroutines.launch
 import android.content.Context
-import com.example.programmingailocal.llm.LlmChatModelHelper
 
 sealed interface HomeUiState {
     data object Idle : HomeUiState
@@ -35,11 +34,6 @@ class HomeViewModel(private val context: Context) : ViewModel() {
 
     fun prepareModel(onReady: () -> Unit) {
         viewModelScope.launch {
-            if (true) {
-                _uiState.value = HomeUiState.Ready
-                onReady()
-                return@launch
-            }
             val model = QWEN_MODEL
             val modelPath = model.getPath(context)
             val modelFile = java.io.File(modelPath)
@@ -98,8 +92,11 @@ fun HomeScreen(navigateToChat: () -> Unit, navigateToProgramming: () -> Unit) {
                 }
             }
             HomeUiState.Ready -> {
-                // Should navigate automatically, but keep fallback button
-                Button(onClick = navigateToChat) { Text("Open chat") }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Button(onClick = navigateToChat) { Text("Open chat") }
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = navigateToProgramming) { Text("Open programming") }
+                }
             }
         }
     }

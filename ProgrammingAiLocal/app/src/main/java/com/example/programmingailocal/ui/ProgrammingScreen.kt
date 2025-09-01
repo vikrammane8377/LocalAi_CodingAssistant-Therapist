@@ -44,6 +44,8 @@ class ProgrammingViewModel : ViewModel() {
     var offerHelp by mutableStateOf(false); private set
     var generating by mutableStateOf(false); private set
     var hintAvailable by mutableStateOf(true); private set
+    var explainAvailable by mutableStateOf(false); private set
+    var explaining by mutableStateOf(false); private set
     var showInputDialog by mutableStateOf(false); private set
     var stdinDraft by mutableStateOf("")
 
@@ -60,9 +62,11 @@ class ProgrammingViewModel : ViewModel() {
             val outputStr = ret["output"] as? String ?: ""
             result = if (errorStr.isNotEmpty()) errorStr else outputStr
             offerHelp = (passed == false)
+            explainAvailable = errorStr.isNotEmpty()
         } catch (e: Exception) {
             Log.e(TAG, "Python exec error", e)
             passed = false; result = "Runtime error: ${e.message}"; offerHelp = true
+            explainAvailable = true
         }
     }
 
@@ -158,6 +162,33 @@ $code"""
         }
     }
 
+    fun requestExplain(context: android.content.Context) {
+        if (!explainAvailable || explaining) return
+        explaining = true; explainAvailable = false; result = "Explaining error..."
+
+        val sb = StringBuilder()
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            val model = com.example.programmingailocal.model.QWEN_MODEL
+            com.example.programmingailocal.llm.LlmChatModelHelper.resetSession(model)
+            if (model.instance == null) {
+                com.example.programmingailocal.llm.LlmChatModelHelper.initialize(context, model) {}
+                while (model.instance == null) { kotlinx.coroutines.delay(100) }
+            }
+            val prompt = """You are a helpful tutor. Explain the following Python error message in simple terms and point out where the issue is in the code. Suggest how to fix it concisely.\n\nCode:\n$code\n\nError:\n$result"""
+
+            com.example.programmingailocal.llm.LlmChatModelHelper.runInference(model, prompt) { partial, done ->
+                if (partial.isNotEmpty()) sb.append(partial)
+                if (done) {
+                    val explanation = sb.toString().trim('\n')
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                        result = explanation
+                        explaining = false
+                    }
+                }
+            }
+        }
+    }
+
     fun dismissHelp() { offerHelp = false }
 
     fun next() {
@@ -226,7 +257,7 @@ fun ProgrammingScreen(viewModel: ProgrammingViewModel = viewModel()) {
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Button(onClick = viewModel::run, enabled = !viewModel.generating) { Text("Run") }
+            Button(onClick = viewModel::run, enabled = !viewModel.generating && !viewModel.explaining) { Text("Run") }
             Spacer(Modifier.width(8.dp))
             if (viewModel.passed == true && viewModel.index < QUESTIONS.lastIndex) {
                 Button(onClick = viewModel::next) { Text("Next question") }
@@ -244,6 +275,17 @@ fun ProgrammingScreen(viewModel: ProgrammingViewModel = viewModel()) {
         }
 
         if (viewModel.generating) {
+            Spacer(Modifier.height(8.dp))
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+        }
+
+        if (viewModel.explainAvailable && !viewModel.explaining) {
+            Spacer(Modifier.height(8.dp))
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            TextButton(onClick = { viewModel.requestExplain(ctx) }) { Text("Explain error") }
+        }
+
+        if (viewModel.explaining) {
             Spacer(Modifier.height(8.dp))
             LinearProgressIndicator(Modifier.fillMaxWidth())
         }

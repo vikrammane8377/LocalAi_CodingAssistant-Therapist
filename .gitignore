@@ -1,1 +1,17 @@
 mistral_model/
+
+# General
+.DS_Store
+*.iml
+
+# IDE
+**/.idea/
+**/.kotlin/
+
+# Build artifacts
+**/build/
+**/out/
+
+# Android
+*.apk
+*.aab
