@@ -24,18 +24,11 @@ suspend fun downloadModelFile(
 ): Boolean = withContext(Dispatchers.IO) {
     try {
         val url = URL(fileUrl)
-        val connection = (url.openConnection() as HttpURLConnection).apply {
-            instanceFollowRedirects = true
-            connectTimeout = 30_000
-            readTimeout = 30_000
-            setRequestProperty("Accept-Encoding", "identity")
-            setRequestProperty("User-Agent", "ProgrammingAiLocal/1.0 (Android)")
-        }
+        val connection = url.openConnection() as HttpURLConnection
         connection.connect()
 
-        if (connection.responseCode !in 200..299) {
+        if (connection.responseCode != HttpURLConnection.HTTP_OK) {
             Log.e(TAG, "HTTP error ${connection.responseCode}")
-            connection.disconnect()
             return@withContext false
         }
 
@@ -56,7 +49,6 @@ suspend fun downloadModelFile(
                 }
             }
         }
-        connection.disconnect()
         true
     } catch (e: Exception) {
         Log.e(TAG, "Download error", e)

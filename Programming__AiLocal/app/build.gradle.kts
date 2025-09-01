@@ -77,8 +77,4 @@ dependencies {
 
     // JSON serialization (used by config classes we’ll copy over)
     implementation(libs.kotlinx.serialization.json)
-
-    // Networking for remote LLM
-    implementation(libs.okhttp3)
-    implementation(libs.okhttp3.logging)
 }
